@@ -59,7 +59,7 @@ export function Leaderboard({
     return ans.is_correct ? 'correct' : 'wrong';
   };
 
-  const showDots = questionIds.length > 0 && answers.length >= 0;
+  const showDots = questionIds.length > 0;
 
   return (
     <div
