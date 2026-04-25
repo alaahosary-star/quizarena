@@ -9,7 +9,7 @@ export function generateSessionCode(): string {
  * إعادة كود جلسة منسّق (847 193)
  */
 export function formatSessionCode(code: string): string {
-  return code.replace(/(\d{3})(\d{3})/, '$1 $2');
+ return '\u200E' + code.replace(/(\d{3})(\d{3})/, '$1 $2');
 }
 
 /**
