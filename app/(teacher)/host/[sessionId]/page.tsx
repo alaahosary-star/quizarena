@@ -33,9 +33,7 @@ export default function HostPage() {
   const confettiLaunched = useRef(false);
 
   const currentQ = questions[session?.current_question ?? 0];
-  const timer = useTimer(currentQ?.time_limit ?? 30, () => {
-    // auto-advance or show results when timer ends
-  });
+  const timer = useTimer(currentQ?.time_limit ?? 30, () => {});
 
   // ─── Load questions ───
   useEffect(() => {
@@ -67,14 +65,12 @@ export default function HostPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.activity_id]);
 
-  // Join URL
   useEffect(() => {
     if (typeof window !== 'undefined' && session?.session_code) {
       setJoinUrl(`${window.location.origin}/join?code=${session.session_code}`);
     }
   }, [session?.session_code]);
 
-  // Show podium when session finishes
   useEffect(() => {
     if (session?.status === 'finished' && !confettiLaunched.current) {
       confettiLaunched.current = true;
@@ -83,7 +79,6 @@ export default function HostPage() {
     }
   }, [session?.status]);
 
-  // ─── Timer reset when question changes ───
   useEffect(() => {
     timer.reset();
     if (session?.status === 'active' && currentQ) {
@@ -93,9 +88,6 @@ export default function HostPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.current_question, session?.status]);
 
-  // ──────────────────────────────────────────────────────
-  // Actions — كل التحديثات عبر API routes (تتجاوز RLS)
-  // ──────────────────────────────────────────────────────
   const callAPI = useCallback(async (path: string) => {
     setActionLoading(true);
     try {
@@ -130,9 +122,6 @@ export default function HostPage() {
     await callAPI('end');
   };
 
-  // ──────────────────────────────────────────────────────
-  // Render guards
-  // ──────────────────────────────────────────────────────
   if (loading) return <LoadingScreen />;
   if (!session) return <NotFound router={router} />;
 
@@ -144,7 +133,6 @@ export default function HostPage() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      {/* ─── Top bar ─── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 100,
         background: 'rgba(11,11,30,.94)', backdropFilter: 'blur(16px)',
@@ -171,7 +159,6 @@ export default function HostPage() {
         </div>
       </div>
 
-      {/* ─── Tabs ─── */}
       <div style={{ display: 'flex', background: 'var(--bg-2)', borderBottom: '1px solid var(--border)', padding: '0 24px' }}>
         {(['control', 'leaderboard', 'qr'] as HostTab[]).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={{
@@ -185,16 +172,19 @@ export default function HostPage() {
         ))}
       </div>
 
-      {/* ─── Main layout ─── */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 380px', gap: 0, maxWidth: 1300, width: '100%', margin: '0 auto', padding: 24, alignItems: 'start' }}>
 
-        {/* Left: question preview */}
         <div style={{ paddingLeft: 24 }}>
           {activeTab === 'control' && (
             <>
               {isWaiting && <WaitingScreen session={session} participants={participants} joinUrl={joinUrl} />}
               {!isWaiting && !isFinished && currentQ && (
-                <QuestionPreview question={currentQ} timer={timer} />
+                <QuestionPreview 
+                  question={currentQ} 
+                  timer={timer} 
+                  answers={answers.filter(a => a.question_id === currentQ.id)}
+                  totalParticipants={participants.length}
+                />
               )}
               {isFinished && showPodium && <Podium top3={participants.slice(0, 3)} />}
               {isFinished && !showPodium && (
@@ -228,7 +218,6 @@ export default function HostPage() {
           )}
         </div>
 
-        {/* Right: controls */}
         <div className="card-panel" style={{ position: 'sticky', top: 90, padding: 20 }}>
           <HostControls
             session={session}
@@ -251,9 +240,6 @@ export default function HostPage() {
   );
 }
 
-// ──────────────────────────────────────────────────────
-// Sub-components
-// ──────────────────────────────────────────────────────
 function WaitingScreen({
   session,
   participants,
@@ -307,15 +293,36 @@ function WaitingScreen({
 function QuestionPreview({
   question,
   timer,
+  answers,
+  totalParticipants,
 }: {
   question: Question & { choices: Choice[] };
   timer: ReturnType<typeof useTimer>;
+  answers: { participant_id: string; question_id: string; is_correct: boolean; skipped: boolean }[];
+  totalParticipants: number;
 }) {
   const CHOICE_COLORS = ['#FF3366', '#3D5AFE', '#FFD700', '#00E676'];
 
+  const answered = answers.length;
+  const correct = answers.filter(a => a.is_correct && !a.skipped).length;
+  const wrong = answers.filter(a => !a.is_correct || a.skipped).length;
+  const correctPct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Timer + question */}
+      {/* Stats bar — Kahoot style */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
+        padding: '14px 16px', borderRadius: 14,
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+      }}>
+        <StatCell label="أجابوا" value={`${answered}/${totalParticipants}`} color="var(--blue)" />
+        <StatCell label="صحيحة" value={String(correct)} color="#00E676" />
+        <StatCell label="خاطئة" value={String(wrong)} color="#FF1744" />
+        <StatCell label="نسبة الصح" value={`${correctPct}%`} color="var(--yellow)" />
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
         <TimerRing
           left={timer.left}
@@ -335,7 +342,6 @@ function QuestionPreview({
         </div>
       </div>
 
-      {/* Choices grid */}
       {question.choices.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {question.choices.map((c, i) => (
@@ -362,12 +368,30 @@ function QuestionPreview({
         </div>
       )}
 
-      {/* Explanation */}
       {question.explanation && (
         <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,215,0,.08)', border: '1px solid rgba(255,215,0,.2)', fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-tajawal)' }}>
           💡 {question.explanation}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCell({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        fontFamily: 'var(--font-space-grotesk)',
+        fontWeight: 900, fontSize: 22, color, lineHeight: 1.1,
+      }}>
+        {value}
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-cairo)', fontSize: 11,
+        color: 'var(--muted)', marginTop: 4,
+      }}>
+        {label}
+      </div>
     </div>
   );
 }
