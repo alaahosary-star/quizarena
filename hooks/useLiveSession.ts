@@ -4,9 +4,17 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { LiveSession, Participant } from '@/lib/supabase/types';
 
+export interface AnswerRecord {
+  participant_id: string;
+  question_id: string;
+  is_correct: boolean;
+  skipped: boolean;
+}
+
 export function useLiveSession(sessionId: string | null) {
   const [session, setSession] = useState<LiveSession | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,7 +24,7 @@ export function useLiveSession(sessionId: string | null) {
     }
     const supabase = createClient();
 
-    const loadSession = async () => {
+    const loadAll = async () => {
       const { data: sessionData } = await supabase
         .from('live_sessions')
         .select('*')
@@ -30,12 +38,18 @@ export function useLiveSession(sessionId: string | null) {
         .eq('session_id', sessionId)
         .order('total_score', { ascending: false });
       if (parts) setParticipants(parts as Participant[]);
+
+      const { data: ans } = await supabase
+        .from('answers')
+        .select('participant_id, question_id, is_correct, skipped')
+        .eq('session_id', sessionId);
+      if (ans) setAnswers(ans as AnswerRecord[]);
+
       setLoading(false);
     };
 
-    loadSession();
+    loadAll();
 
-    // Subscribe to realtime changes
     const channel = supabase
       .channel(`session:${sessionId}`)
       .on(
@@ -55,6 +69,17 @@ export function useLiveSession(sessionId: string | null) {
           if (data) setParticipants(data as Participant[]);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'answers', filter: `session_id=eq.${sessionId}` },
+        async () => {
+          const { data } = await supabase
+            .from('answers')
+            .select('participant_id, question_id, is_correct, skipped')
+            .eq('session_id', sessionId);
+          if (data) setAnswers(data as AnswerRecord[]);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -62,5 +87,5 @@ export function useLiveSession(sessionId: string | null) {
     };
   }, [sessionId]);
 
-  return { session, participants, loading };
+  return { session, participants, answers, loading };
 }

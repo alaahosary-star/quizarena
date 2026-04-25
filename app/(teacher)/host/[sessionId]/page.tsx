@@ -23,7 +23,7 @@ export default function HostPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const { session, participants, loading } = useLiveSession(sessionId);
+  const { session, participants, answers, loading } = useLiveSession(sessionId);
   const [questions, setQuestions] = useState<(Question & { choices: Choice[] })[]>([]);
   const [activityTitle, setActivityTitle] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -207,7 +207,7 @@ export default function HostPage() {
 
           {activeTab === 'leaderboard' && (
             <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <Leaderboard participants={participants} />
+              <Leaderboard participants={participants} answers={answers} questionIds={questions.map(q => q.id)} />
             </div>
           )}
 
@@ -356,7 +356,7 @@ function QuestionPreview({
               <span style={{ fontFamily: 'var(--font-tajawal)', fontSize: 15, color: 'var(--text)' }}>
                 {c.choice_text}
               </span>
-             {c.is_correct && <span style={{ marginRight: 'auto', color: 'rgba(0,230,118,0.25)', fontSize: 11, fontWeight: 600 }}>•</span>}
+              {c.is_correct && <span style={{ marginRight: 'auto', color: 'rgba(0,230,118,0.25)', fontSize: 11, fontWeight: 600 }}>•</span>}
             </div>
           ))}
         </div>
