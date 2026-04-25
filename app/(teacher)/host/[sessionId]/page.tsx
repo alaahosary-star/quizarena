@@ -86,8 +86,12 @@ export default function HostPage() {
   // ─── Timer reset when question changes ───
   useEffect(() => {
     timer.reset();
+    if (session?.status === 'active' && currentQ) {
+      const t = setTimeout(() => timer.start(), 1000);
+      return () => clearTimeout(t);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.current_question]);
+  }, [session?.current_question, session?.status]);
 
   // ──────────────────────────────────────────────────────
   // Actions — كل التحديثات عبر API routes (تتجاوز RLS)
@@ -352,7 +356,7 @@ function QuestionPreview({
               <span style={{ fontFamily: 'var(--font-tajawal)', fontSize: 15, color: 'var(--text)' }}>
                 {c.choice_text}
               </span>
-              {c.is_correct && <span style={{ marginRight: 'auto', color: 'var(--green)', fontSize: 18 }}>✓</span>}
+             {c.is_correct && <span style={{ marginRight: 'auto', color: 'rgba(0,230,118,0.25)', fontSize: 11, fontWeight: 600 }}>•</span>}
             </div>
           ))}
         </div>
