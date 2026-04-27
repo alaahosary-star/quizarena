@@ -19,6 +19,8 @@ interface SessionRow {
   avg_score: number;
 }
 
+const isCompleted = (status: string) => ['completed', 'finished', 'ended'].includes(status);
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -27,13 +29,13 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'completed' | 'active'>('all');
   const [search, setSearch] = useState('');
+  const [endingId, setEndingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      // Get all sessions for this teacher
       const { data: rawSessions } = await supabase
         .from('live_sessions')
         .select('*, activities(title)')
@@ -42,7 +44,6 @@ export default function AnalyticsPage() {
 
       if (!rawSessions) { setLoading(false); return; }
 
-      // Get participant counts and avg scores
       const enriched: SessionRow[] = await Promise.all(
         rawSessions.map(async (s: any) => {
           const { count } = await supabase
@@ -81,16 +82,37 @@ export default function AnalyticsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const endSession = async (sessionId: string) => {
+    if (!confirm('هل أنت متأكد من إنهاء هذه الجلسة؟')) return;
+    setEndingId(sessionId);
+    try {
+      const { error } = await supabase
+        .from('live_sessions')
+        .update({ status: 'finished', ended_at: new Date().toISOString() })
+        .eq('id', sessionId);
+      if (error) throw error;
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId ? { ...s, status: 'finished', ended_at: new Date().toISOString() } : s
+      ));
+    } catch (err) {
+      console.error(err);
+      alert('فشل إنهاء الجلسة');
+    } finally {
+      setEndingId(null);
+    }
+  };
+
   const filtered = sessions.filter((s) => {
-    if (filter === 'completed' && s.status !== 'completed') return false;
-    if (filter === 'active' && s.status === 'completed') return false;
+    if (filter === 'completed' && !isCompleted(s.status)) return false;
+    if (filter === 'active' && isCompleted(s.status)) return false;
     if (search && !s.activity_title.toLowerCase().includes(search.toLowerCase()) && !s.session_code.includes(search)) return false;
     return true;
   });
 
   const totalSessions = sessions.length;
   const totalParticipants = sessions.reduce((s, r) => s + r.participant_count, 0);
-  const completedSessions = sessions.filter(s => s.status === 'completed').length;
+  const completedSessions = sessions.filter(s => isCompleted(s.status)).length;
+  const activeSessions = sessions.filter(s => !isCompleted(s.status)).length;
   const overallAvg = sessions.length > 0
     ? Math.round(sessions.reduce((s, r) => s + r.avg_score, 0) / sessions.length)
     : 0;
@@ -106,10 +128,11 @@ export default function AnalyticsPage() {
   };
 
   const statusInfo = (status: string) => {
+    if (isCompleted(status)) return { label: 'مكتملة', color: 'var(--green)', bg: 'rgba(0,230,118,.12)' };
     switch (status) {
-      case 'completed': return { label: 'مكتملة', color: 'var(--green)', bg: 'rgba(0,230,118,.12)' };
       case 'active': return { label: 'نشطة', color: 'var(--blue)', bg: 'rgba(41,121,255,.12)' };
       case 'waiting': return { label: 'انتظار', color: 'var(--yellow)', bg: 'rgba(255,214,0,.12)' };
+      case 'paused': return { label: 'متوقفة', color: 'var(--purple)', bg: 'rgba(124,77,255,.12)' };
       default: return { label: status, color: 'var(--muted)', bg: 'var(--bg-2)' };
     }
   };
@@ -130,10 +153,11 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 32 }}>
           <StatCard icon="🎮" label="إجمالي الجلسات" value={String(totalSessions)} color="var(--pink)" />
-          <StatCard icon="✅" label="جلسات مكتملة" value={String(completedSessions)} color="var(--green)" />
-          <StatCard icon="👥" label="إجمالي المشاركين" value={String(totalParticipants)} color="var(--blue)" />
+          <StatCard icon="✅" label="مكتملة" value={String(completedSessions)} color="var(--green)" />
+          <StatCard icon="🔴" label="نشطة الآن" value={String(activeSessions)} color="var(--blue)" />
+          <StatCard icon="👥" label="إجمالي المشاركين" value={String(totalParticipants)} color="var(--purple)" />
           <StatCard icon="⭐" label="متوسط النقاط" value={overallAvg.toLocaleString('ar-EG')} color="var(--yellow)" />
         </div>
 
@@ -143,10 +167,10 @@ export default function AnalyticsPage() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 4 }}>
               {([
-                { k: 'all', label: 'الكل' },
-                { k: 'completed', label: 'مكتملة' },
-                { k: 'active', label: 'نشطة' },
-              ] as { k: 'all' | 'completed' | 'active'; label: string }[]).map(({ k, label }) => (
+                { k: 'all', label: 'الكل', n: sessions.length },
+                { k: 'completed', label: 'مكتملة', n: completedSessions },
+                { k: 'active', label: 'نشطة', n: activeSessions },
+              ] as { k: 'all' | 'completed' | 'active'; label: string; n: number }[]).map(({ k, label, n }) => (
                 <button
                   key={k}
                   onClick={() => setFilter(k)}
@@ -155,9 +179,18 @@ export default function AnalyticsPage() {
                     background: filter === k ? 'var(--bg-2)' : 'transparent',
                     color: filter === k ? 'var(--text)' : 'var(--muted)',
                     fontFamily: 'var(--font-cairo)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
                   }}
                 >
                   {label}
+                  {n > 0 && (
+                    <span style={{
+                      padding: '1px 7px', borderRadius: 999, fontSize: 11,
+                      background: filter === k ? 'var(--pink)' : 'var(--border)',
+                      color: filter === k ? '#fff' : 'var(--muted)',
+                      fontFamily: 'var(--font-space-grotesk)',
+                    }}>{n}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -200,65 +233,86 @@ export default function AnalyticsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {filtered.map((s) => {
               const st = statusInfo(s.status);
+              const isActive = !isCompleted(s.status);
               return (
-                <Link
+                <div
                   key={s.id}
-                  href={`/results/${s.id}`}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
+                  className="card-panel"
+                  style={{
+                    padding: '18px 22px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 16,
+                    borderInlineStart: `4px solid ${st.color}`,
+                  }}
                 >
-                  <div
-                    className="card-panel"
-                    style={{
-                      padding: '18px 22px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 16,
-                      cursor: 'pointer',
-                      transition: 'all .15s',
-                      borderInlineStart: `4px solid ${st.color}`,
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateX(-4px)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'none'; }}
-                  >
-                    {/* Activity info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                        <h3 style={{ fontSize: 16, fontFamily: 'var(--font-cairo)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {s.activity_title}
-                        </h3>
-                        <span style={{
-                          padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                          background: st.bg, color: st.color, fontFamily: 'var(--font-cairo)',
-                          border: `1px solid ${st.color}`,
-                        }}>
-                          {st.label}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>
-                        <span>🔑 {s.session_code}</span>
-                        <span>📅 {formatDate(s.created_at)}</span>
-                        <span>🕐 {formatTime(s.created_at)}</span>
-                      </div>
+                  {/* Activity info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <h3 style={{ fontSize: 16, fontFamily: 'var(--font-cairo)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.activity_title}
+                      </h3>
+                      <span style={{
+                        padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                        background: st.bg, color: st.color, fontFamily: 'var(--font-cairo)',
+                        border: `1px solid ${st.color}`,
+                      }}>
+                        {st.label}
+                      </span>
                     </div>
-
-                    {/* Stats */}
-                    <div style={{ display: 'flex', gap: 20, flexShrink: 0, alignItems: 'center' }}>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontFamily: 'var(--font-space-grotesk)', fontWeight: 900, fontSize: 20, color: 'var(--blue)' }}>
-                          {s.participant_count}
-                        </div>
-                        <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>مشارك</div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontFamily: 'var(--font-space-grotesk)', fontWeight: 900, fontSize: 20, color: 'var(--yellow)' }}>
-                          {s.avg_score.toLocaleString('ar-EG')}
-                        </div>
-                        <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>متوسط النقاط</div>
-                      </div>
-                      <div style={{ fontSize: 20, color: 'var(--muted)' }}>←</div>
+                    <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>
+                      <span>🔑 {s.session_code}</span>
+                      <span>📅 {formatDate(s.created_at)}</span>
+                      <span>🕐 {formatTime(s.created_at)}</span>
+                      {s.ended_at && <span>🏁 انتهت {formatTime(s.ended_at)}</span>}
                     </div>
                   </div>
-                </Link>
+
+                  {/* Stats */}
+                  <div style={{ display: 'flex', gap: 16, flexShrink: 0, alignItems: 'center' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-space-grotesk)', fontWeight: 900, fontSize: 20, color: 'var(--blue)' }}>
+                        {s.participant_count}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>مشارك</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-space-grotesk)', fontWeight: 900, fontSize: 20, color: 'var(--yellow)' }}>
+                        {s.avg_score.toLocaleString('ar-EG')}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>متوسط النقاط</div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {isActive && (
+                        <button
+                          onClick={() => endSession(s.id)}
+                          disabled={endingId === s.id}
+                          style={{
+                            padding: '8px 14px', borderRadius: 10, border: '1px solid var(--danger)',
+                            background: 'rgba(255,23,68,.12)', color: 'var(--danger)',
+                            fontFamily: 'var(--font-cairo)', fontWeight: 700, fontSize: 12,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {endingId === s.id ? '...' : '⏹ إنهاء'}
+                        </button>
+                      )}
+                      <Link
+                        href={`/results/${s.id}`}
+                        style={{
+                          padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                          background: 'var(--bg-2)', color: 'var(--text)',
+                          fontFamily: 'var(--font-cairo)', fontWeight: 700, fontSize: 12,
+                          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        📊 التفاصيل
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
