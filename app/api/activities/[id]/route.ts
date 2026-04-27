@@ -2,22 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-/**
- * PATCH /api/activities/[id]
- * يعدّل معلومات النشاط (لا الأسئلة).
- */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // تحقق من الملكية
     const { data: act } = await supabase
       .from('activities').select('teacher_id').eq('id', id).single();
     if (!act) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -50,17 +45,14 @@ export async function PATCH(
   }
 }
 
-/**
- * DELETE /api/activities/[id]
- */
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

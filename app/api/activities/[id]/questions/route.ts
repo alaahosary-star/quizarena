@@ -19,23 +19,17 @@ interface QuestionDraft {
   choices: ChoiceDraft[];
 }
 
-/**
- * PUT /api/activities/[id]/questions
- * يحذف كل أسئلة النشاط ويُدرج الأسئلة الجديدة (bulk replace).
- * يُستخدم من صفحة الـ builder للحفظ.
- */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // تحقّق من الملكية
     const { data: act } = await supabase
       .from('activities').select('teacher_id').eq('id', id).single();
     if (!act) return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
@@ -48,7 +42,6 @@ export async function PUT(
 
     const admin = createAdminClient();
 
-    // 1. حذف الأسئلة القديمة (cascade يحذف choices تلقائيًا)
     const { error: delErr } = await admin.from('questions').delete().eq('activity_id', id);
     if (delErr) throw delErr;
 
@@ -56,7 +49,6 @@ export async function PUT(
       return NextResponse.json({ inserted: 0 });
     }
 
-    // 2. إدراج الأسئلة الجديدة
     const { data: insertedQs, error: qErr } = await admin
       .from('questions')
       .insert(
@@ -76,7 +68,6 @@ export async function PUT(
 
     if (qErr || !insertedQs) throw qErr ?? new Error('Failed to insert questions');
 
-    // 3. إدراج كل الخيارات
     const choicesPayload = insertedQs.flatMap((dbQ, i) =>
       (questions[i].choices ?? []).map((c, ci) => ({
         question_id: dbQ.id,
@@ -102,18 +93,14 @@ export async function PUT(
   }
 }
 
-/**
- * POST /api/activities/[id]/questions
- * يُدرج أسئلة جديدة بدون حذف (للمولّد الذكي).
- */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -129,7 +116,6 @@ export async function POST(
 
     const admin = createAdminClient();
 
-    // احسب رقم البداية
     const { data: maxRow } = await admin
       .from('questions')
       .select('order_index')
