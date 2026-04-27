@@ -295,12 +295,12 @@ function DashboardPageContent() {
             color="var(--pink)"
           />
           <QuickAction
-            href="/dashboard"
+            href="/analytics"
             icon="📊"
             title="التقارير والتحليلات"
             desc="قريبًا — نتائج الطلاب وأصعب الأسئلة"
             color="var(--blue)"
-            disabled
+           
           />
         </section>
 
