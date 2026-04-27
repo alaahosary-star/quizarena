@@ -10,6 +10,7 @@ interface SessionRow {
   id: string;
   session_code: string;
   status: string;
+  mode: string;
   created_at: string;
   ended_at: string | null;
   current_question_index: number;
@@ -28,6 +29,7 @@ export default function AnalyticsPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'completed' | 'active'>('all');
+  const [modeFilter, setModeFilter] = useState<'all' | 'live' | 'homework'>('all');
   const [search, setSearch] = useState('');
   const [endingId, setEndingId] = useState<string | null>(null);
 
@@ -64,6 +66,7 @@ export default function AnalyticsPage() {
             id: s.id,
             session_code: s.session_code,
             status: s.status,
+            mode: s.mode ?? 'live',
             created_at: s.created_at,
             ended_at: s.ended_at,
             current_question_index: s.current_question_index,
@@ -105,6 +108,8 @@ export default function AnalyticsPage() {
   const filtered = sessions.filter((s) => {
     if (filter === 'completed' && !isCompleted(s.status)) return false;
     if (filter === 'active' && isCompleted(s.status)) return false;
+    if (modeFilter === 'live' && s.mode !== 'live') return false;
+    if (modeFilter === 'homework' && s.mode !== 'homework') return false;
     if (search && !s.activity_title.toLowerCase().includes(search.toLowerCase()) && !s.session_code.includes(search)) return false;
     return true;
   });
@@ -113,6 +118,8 @@ export default function AnalyticsPage() {
   const totalParticipants = sessions.reduce((s, r) => s + r.participant_count, 0);
   const completedSessions = sessions.filter(s => isCompleted(s.status)).length;
   const activeSessions = sessions.filter(s => !isCompleted(s.status)).length;
+  const liveSessions = sessions.filter(s => s.mode === 'live').length;
+  const homeworkSessions = sessions.filter(s => s.mode === 'homework').length;
   const overallAvg = sessions.length > 0
     ? Math.round(sessions.reduce((s, r) => s + r.avg_score, 0) / sessions.length)
     : 0;
@@ -137,6 +144,11 @@ export default function AnalyticsPage() {
     }
   };
 
+  const modeInfo = (mode: string) => {
+    if (mode === 'homework') return { label: '📚 واجب', color: 'var(--purple)', bg: 'rgba(124,77,255,.12)' };
+    return { label: '🎮 مباشر', color: 'var(--pink)', bg: 'rgba(255,23,68,.12)' };
+  };
+
   return (
     <div style={{ minHeight: '100vh' }}>
       <Navbar />
@@ -153,18 +165,20 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 32 }}>
           <StatCard icon="🎮" label="إجمالي الجلسات" value={String(totalSessions)} color="var(--pink)" />
+          <StatCard icon="📡" label="مباشر" value={String(liveSessions)} color="var(--pink)" />
+          <StatCard icon="📚" label="واجب" value={String(homeworkSessions)} color="var(--purple)" />
           <StatCard icon="✅" label="مكتملة" value={String(completedSessions)} color="var(--green)" />
-          <StatCard icon="🔴" label="نشطة الآن" value={String(activeSessions)} color="var(--blue)" />
-          <StatCard icon="👥" label="إجمالي المشاركين" value={String(totalParticipants)} color="var(--purple)" />
-          <StatCard icon="⭐" label="متوسط النقاط" value={overallAvg.toLocaleString('ar-EG')} color="var(--yellow)" />
+          <StatCard icon="🔴" label="نشطة" value={String(activeSessions)} color="var(--blue)" />
+          <StatCard icon="👥" label="المشاركين" value={String(totalParticipants)} color="var(--yellow)" />
         </div>
 
-        {/* Filter + Search */}
+        {/* Filters */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
           <h2 style={{ fontSize: 20, fontFamily: 'var(--font-cairo)' }}>📋 سجل الجلسات</h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {/* Status filter */}
             <div style={{ display: 'flex', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 4 }}>
               {([
                 { k: 'all', label: 'الكل', n: sessions.length },
@@ -175,17 +189,17 @@ export default function AnalyticsPage() {
                   key={k}
                   onClick={() => setFilter(k)}
                   style={{
-                    padding: '8px 14px', borderRadius: 8, border: 0,
+                    padding: '8px 12px', borderRadius: 8, border: 0,
                     background: filter === k ? 'var(--bg-2)' : 'transparent',
                     color: filter === k ? 'var(--text)' : 'var(--muted)',
-                    fontFamily: 'var(--font-cairo)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 6,
+                    fontFamily: 'var(--font-cairo)', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 4,
                   }}
                 >
                   {label}
                   {n > 0 && (
                     <span style={{
-                      padding: '1px 7px', borderRadius: 999, fontSize: 11,
+                      padding: '1px 6px', borderRadius: 999, fontSize: 10,
                       background: filter === k ? 'var(--pink)' : 'var(--border)',
                       color: filter === k ? '#fff' : 'var(--muted)',
                       fontFamily: 'var(--font-space-grotesk)',
@@ -194,13 +208,36 @@ export default function AnalyticsPage() {
                 </button>
               ))}
             </div>
+
+            {/* Mode filter */}
+            <div style={{ display: 'flex', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 4 }}>
+              {([
+                { k: 'all', label: 'الكل' },
+                { k: 'live', label: '🎮 مباشر' },
+                { k: 'homework', label: '📚 واجب' },
+              ] as { k: 'all' | 'live' | 'homework'; label: string }[]).map(({ k, label }) => (
+                <button
+                  key={k}
+                  onClick={() => setModeFilter(k)}
+                  style={{
+                    padding: '8px 12px', borderRadius: 8, border: 0,
+                    background: modeFilter === k ? 'var(--bg-2)' : 'transparent',
+                    color: modeFilter === k ? 'var(--text)' : 'var(--muted)',
+                    fontFamily: 'var(--font-cairo)', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="🔍 ابحث بالعنوان أو الرمز..."
+              placeholder="🔍 ابحث..."
               className="input-field"
-              style={{ maxWidth: 240, padding: '10px 14px' }}
+              style={{ maxWidth: 200, padding: '10px 14px' }}
             />
           </div>
         </div>
@@ -233,6 +270,7 @@ export default function AnalyticsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {filtered.map((s) => {
               const st = statusInfo(s.status);
+              const md = modeInfo(s.mode);
               const isActive = !isCompleted(s.status);
               return (
                 <div
@@ -243,15 +281,24 @@ export default function AnalyticsPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 16,
-                    borderInlineStart: `4px solid ${st.color}`,
+                    borderInlineStart: `4px solid ${md.color}`,
                   }}
                 >
                   {/* Activity info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                       <h3 style={{ fontSize: 16, fontFamily: 'var(--font-cairo)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {s.activity_title}
                       </h3>
+                      {/* Mode badge */}
+                      <span style={{
+                        padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                        background: md.bg, color: md.color, fontFamily: 'var(--font-cairo)',
+                        border: `1px solid ${md.color}`,
+                      }}>
+                        {md.label}
+                      </span>
+                      {/* Status badge */}
                       <span style={{
                         padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
                         background: st.bg, color: st.color, fontFamily: 'var(--font-cairo)',
@@ -264,11 +311,11 @@ export default function AnalyticsPage() {
                       <span>🔑 {s.session_code}</span>
                       <span>📅 {formatDate(s.created_at)}</span>
                       <span>🕐 {formatTime(s.created_at)}</span>
-                      {s.ended_at && <span>🏁 انتهت {formatTime(s.ended_at)}</span>}
+                      {s.ended_at && <span>🏁 {formatTime(s.ended_at)}</span>}
                     </div>
                   </div>
 
-                  {/* Stats */}
+                  {/* Stats + Actions */}
                   <div style={{ display: 'flex', gap: 16, flexShrink: 0, alignItems: 'center' }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontFamily: 'var(--font-space-grotesk)', fontWeight: 900, fontSize: 20, color: 'var(--blue)' }}>
@@ -280,10 +327,9 @@ export default function AnalyticsPage() {
                       <div style={{ fontFamily: 'var(--font-space-grotesk)', fontWeight: 900, fontSize: 20, color: 'var(--yellow)' }}>
                         {s.avg_score.toLocaleString('ar-EG')}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>متوسط النقاط</div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-cairo)' }}>متوسط</div>
                     </div>
 
-                    {/* Action buttons */}
                     <div style={{ display: 'flex', gap: 8 }}>
                       {isActive && (
                         <button
