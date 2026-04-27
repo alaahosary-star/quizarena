@@ -4,10 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: any
 ) {
   try {
-    const { id } = await params;
+    const { id } = context.params?.id ? context.params : await context.params;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -47,10 +47,10 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: any
 ) {
   try {
-    const { id } = await params;
+    const { id } = context.params?.id ? context.params : await context.params;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
