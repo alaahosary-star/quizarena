@@ -12,6 +12,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +32,28 @@ export default function LoginPage() {
       sfx.wrong();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setError('اكتب بريدك الإلكتروني أولاً ثم اضغط نسيت كلمة المرور');
+      return;
+    }
+    setResetLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (err) throw err;
+      setResetSent(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'فشل إرسال رابط الاستعادة';
+      setError(msg);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -96,6 +120,26 @@ export default function LoginPage() {
           />
         </div>
 
+        <div style={{ textAlign: 'left' }}>
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            disabled={resetLoading}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--pink)',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'var(--font-cairo)',
+              padding: 0,
+            }}
+          >
+            {resetLoading ? 'جارٍ الإرسال...' : 'نسيت كلمة المرور؟'}
+          </button>
+        </div>
+
         {error && (
           <div
             style={{
@@ -109,6 +153,22 @@ export default function LoginPage() {
             }}
           >
             {error}
+          </div>
+        )}
+
+        {resetSent && (
+          <div
+            style={{
+              padding: 12,
+              background: 'rgba(0,230,118,.12)',
+              border: '1px solid var(--green)',
+              borderRadius: 10,
+              color: 'var(--green)',
+              fontSize: 14,
+              textAlign: 'center',
+            }}
+          >
+            تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني
           </div>
         )}
 
