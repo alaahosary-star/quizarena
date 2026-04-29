@@ -1,10 +1,150 @@
 import Link from 'next/link';
 import { Navbar } from '@/components/shared/Navbar';
 
+/* ───── علم البحرين SVG ───── */
+function BahrainFlag({ size = 48 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size * 0.6}
+      viewBox="0 0 500 300"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ borderRadius: 4, boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}
+    >
+      {/* الخلفية البيضاء */}
+      <rect width="500" height="300" fill="#fff" />
+      {/* الجزء الأحمر */}
+      <polygon
+        points="166,0 500,0 500,300 166,300 210,270 166,240 210,210 166,180 210,150 166,120 210,90 166,60 210,30 166,0"
+        fill="#CE1126"
+      />
+    </svg>
+  );
+}
+
 export default function HomePage() {
   return (
     <>
+      {/* ═══════ الغلاف الرسمي ═══════ */}
+      <header
+        style={{
+          background: 'linear-gradient(135deg, #0d1b3e 0%, #1a2d5a 50%, #0d1b3e 100%)',
+          color: '#fff',
+          padding: '28px 20px',
+          textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+          borderBottom: '4px solid #CE1126',
+        }}
+      >
+        {/* زخرفة خلفية */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: 0.04,
+            backgroundImage:
+              'repeating-linear-gradient(45deg, #fff 0px, #fff 1px, transparent 1px, transparent 12px)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        <div
+          style={{
+            maxWidth: 800,
+            margin: '0 auto',
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          {/* علم البحرين */}
+          <BahrainFlag size={64} />
+
+          {/* مملكة البحرين */}
+          <h2
+            style={{
+              fontSize: 'clamp(18px, 4vw, 26px)',
+              fontWeight: 700,
+              margin: 0,
+              letterSpacing: 2,
+              fontFamily: 'var(--font-cairo, "Cairo", sans-serif)',
+              textShadow: '0 2px 8px rgba(0,0,0,.3)',
+            }}
+          >
+            🇧🇭 مملكة البحرين 🇧🇭
+          </h2>
+
+          {/* وزارة التربية والتعليم */}
+          <p
+            style={{
+              fontSize: 'clamp(15px, 3vw, 20px)',
+              margin: 0,
+              fontWeight: 600,
+              color: '#f0c040',
+              fontFamily: 'var(--font-cairo, "Cairo", sans-serif)',
+              letterSpacing: 1,
+            }}
+          >
+            وزارة التربية والتعليم
+          </p>
+
+          {/* خط فاصل زخرفي */}
+          <div
+            style={{
+              width: 120,
+              height: 2,
+              background: 'linear-gradient(90deg, transparent, #f0c040, transparent)',
+              margin: '4px 0',
+            }}
+          />
+
+          {/* اسم المدرسة */}
+          <h1
+            style={{
+              fontSize: 'clamp(16px, 3.5vw, 24px)',
+              fontWeight: 700,
+              margin: 0,
+              lineHeight: 1.6,
+              fontFamily: 'var(--font-cairo, "Cairo", sans-serif)',
+              textShadow: '0 1px 6px rgba(0,0,0,.2)',
+            }}
+          >
+            مدرسة سمو الشيخ محمد بن خليفة
+            <br />
+            الابتدائية الإعدادية للبنين
+          </h1>
+
+          {/* خط فاصل زخرفي */}
+          <div
+            style={{
+              width: 80,
+              height: 2,
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent)',
+              margin: '2px 0',
+            }}
+          />
+
+          {/* اسم المعلم */}
+          <p
+            style={{
+              fontSize: 'clamp(13px, 2.5vw, 17px)',
+              margin: 0,
+              color: '#a8c4f0',
+              fontFamily: 'var(--font-cairo, "Cairo", sans-serif)',
+              fontWeight: 500,
+            }}
+          >
+            إعداد: أ/ علاء إبراهيم
+          </p>
+        </div>
+      </header>
+
       <Navbar />
+
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 28px' }}>
         {/* Hero */}
         <section style={{ textAlign: 'center', padding: '64px 0 48px' }}>
